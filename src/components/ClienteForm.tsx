@@ -63,6 +63,7 @@ const ClienteForm = ({ open, onClose, onSubmit, initialData, isEditing }: Client
               onChange={(e) => setForm({ ...form, apellido: e.target.value })}
               required
               placeholder="Ej: García"
+              autoComplete="off"
             />
           </div>
           <div className="space-y-2">
@@ -73,6 +74,7 @@ const ClienteForm = ({ open, onClose, onSubmit, initialData, isEditing }: Client
               onChange={(e) => setForm({ ...form, nombre: e.target.value })}
               required
               placeholder="Ej: Juan"
+              autoComplete="off"
             />
           </div>
           <div className="space-y-2">
@@ -83,6 +85,7 @@ const ClienteForm = ({ open, onClose, onSubmit, initialData, isEditing }: Client
               onChange={(e) => setForm({ ...form, cuit: e.target.value })}
               required
               placeholder="Ej: 20-12345678-9"
+              autoComplete="off"
             />
           </div>
           <div className="space-y-2">
@@ -92,6 +95,7 @@ const ClienteForm = ({ open, onClose, onSubmit, initialData, isEditing }: Client
               value={form.telefono}
               onChange={(e) => setForm({ ...form, telefono: e.target.value })}
               placeholder="Ej: +54 11 1234-5678"
+              autoComplete="off"
             />
           </div>
           <DialogFooter className="gap-2">
