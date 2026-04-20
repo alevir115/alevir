@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Users } from "lucide-react";
 import ClienteTable from "@/components/ClienteTable";
 import ClienteForm, { ClienteFormData } from "@/components/ClienteForm";
+import { InstallAppButton } from "@/components/InstallAppButton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -135,7 +136,7 @@ const Index = () => {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Users className="h-6 w-6" />
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
               Gestión de Clientes
             </h1>
@@ -143,6 +144,7 @@ const Index = () => {
               {clientes.length} cliente{clientes.length !== 1 ? "s" : ""} registrado{clientes.length !== 1 ? "s" : ""}
             </p>
           </div>
+          <InstallAppButton />
         </div>
 
         {/* Toolbar */}
