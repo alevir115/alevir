@@ -1,8 +1,10 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
+let win;
+
 function createWindow() {
-  const win = new BrowserWindow({
+  win = new BrowserWindow({
     width: 1200,
     height: 800,
     icon: path.join(__dirname, '..', 'public', 'icon-192.png'),
@@ -12,13 +14,25 @@ function createWindow() {
     },
   });
 
+  // Evita que la página bloquee el cierre (cruz o Alt+F4)
+  win.webContents.on('will-prevent-unload', (e) => e.preventDefault());
+
+  win.on('close', () => {
+    win.destroy();
+  });
+
+  win.on('closed', () => {
+    win = null;
+    app.quit();
+  });
+
   win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
 }
 
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  app.quit();
 });
 
 app.on('activate', () => {
