@@ -7,6 +7,9 @@ export const InstallAppButton = () => {
   const { canInstall, isInstalled, promptInstall } = usePwaInstall();
   const { toast } = useToast();
 
+  const isElectron = navigator.userAgent.includes("Electron") || window.location.protocol === "file:";
+  if (isElectron) return null;
+
   if (isInstalled) {
     return (
       <Button variant="outline" size="sm" disabled className="gap-2">
@@ -18,10 +21,12 @@ export const InstallAppButton = () => {
 
   const handleClick = async () => {
     if (!canInstall) {
+      const inIframe = window.self !== window.top;
       toast({
-        title: "Instalación no disponible",
-        description:
-          "Tu navegador no soporta instalación automática. En Chrome/Edge buscá el ícono ⊕ en la barra de direcciones.",
+        title: inIframe ? "Abrí la app publicada para instalarla" : "Instalá la app desde el navegador",
+        description: inIframe
+          ? "Desde la vista previa no se puede instalar. Entrá a https://alevir.lovable.app en Chrome o Edge."
+          : "En Chrome o Edge: menú ⋮ → \"Transmitir, guardar y compartir\" → \"Instalar página como app\" (o el ícono de instalar en la barra de direcciones). En iPhone: Compartir → \"Agregar a inicio\".",
       });
       return;
     }

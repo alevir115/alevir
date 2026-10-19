@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Users } from "lucide-react";
+import { Plus, Search, Users, WifiOff, RefreshCw } from "lucide-react";
 import ConsultarClima from "@/components/ConsultarClima";
 import BuscarPorDni from "@/components/BuscarPorDni";
 import ClienteTable from "@/components/ClienteTable";
@@ -20,15 +20,34 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Cliente,
+  ClienteData,
+  PendingOp,
+  applyQueue,
+  enqueue,
+  flushQueue,
+  isNetworkError,
+  loadCache,
+  loadQueue,
+  newTempId,
+  saveCache,
+  saveQueue,
+} from "@/lib/offline-clientes";
 
-interface Cliente {
-  id: number;
-  dni: string | null;
-  apellido: string;
-  nombre: string;
-  cuit: string;
-  telefono: string | null;
-}
+const toData = (d: ClienteFormData): ClienteData => ({
+  dni: d.dni,
+  apellido: d.apellido,
+  nombre: d.nombre,
+  cuit: d.cuit,
+  telefono: d.telefono || null,
+});
+
+const runOp = async (op: PendingOp) => {
+  if (op.kind === "insert") return supabase.from("clientes").insert(op.data);
+  if (op.kind === "update") return supabase.from("clientes").update(op.data).eq("id", op.id);
+  return supabase.from("clientes").delete().eq("id", op.id);
+};
 
 const Index = () => {
   const { toast } = useToast();
@@ -37,69 +56,118 @@ const Index = () => {
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
+  const [online, setOnline] = useState(navigator.onLine);
+  const [pending, setPending] = useState(loadQueue().length);
+  const [syncing, setSyncing] = useState(false);
 
   const { data: clientes = [], isLoading } = useQuery({
     queryKey: ["clientes"],
+    networkMode: "always",
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("clientes")
-        .select("*")
-        .order("apellido");
-      if (error) throw error;
-      return data as Cliente[];
+      const queue = loadQueue();
+      try {
+        const { data, error } = await supabase.from("clientes").select("*").order("apellido");
+        if (error) throw error;
+        saveCache(data as Cliente[]);
+        return applyQueue(data as Cliente[], queue);
+      } catch (e) {
+        if (!isNetworkError(e)) throw e;
+        return applyQueue(loadCache(), queue);
+      }
     },
   });
 
-  const addMutation = useMutation({
-    mutationFn: async (data: ClienteFormData) => {
-      const { error } = await supabase.from("clientes").insert({
-        dni: data.dni,
-        apellido: data.apellido,
-        nombre: data.nombre,
-        cuit: data.cuit,
-        telefono: data.telefono || null,
+  const sync = useCallback(async () => {
+    const queue = loadQueue();
+    if (!queue.length || !navigator.onLine) return;
+    setSyncing(true);
+    const res = await flushQueue(queue, runOp);
+    saveQueue(res.remaining);
+    setPending(res.remaining.length);
+    setSyncing(false);
+    queryClient.invalidateQueries({ queryKey: ["clientes"] });
+    if (res.sent) toast({ title: `Se sincronizaron ${res.sent} cambio(s) con la base de datos` });
+    if (res.rejected)
+      toast({
+        title: `${res.rejected} cambio(s) no se pudieron guardar`,
+        description: "Puede que el DNI ya exista o que el cliente haya sido borrado.",
+        variant: "destructive",
       });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["clientes"] });
-      toast({ title: "Cliente agregado correctamente" });
+  }, [queryClient, toast]);
+
+  useEffect(() => {
+    const goOnline = () => {
+      setOnline(true);
+      sync();
+    };
+    const goOffline = () => setOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    sync();
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, [sync]);
+
+  /** Intenta guardar en la base; si no hay internet, lo deja en la cola local. */
+  const saveOrQueue = async (op: PendingOp): Promise<"saved" | "queued"> => {
+    const isLocalOnly = op.kind !== "insert" && op.id < 0;
+    if (navigator.onLine && !isLocalOnly) {
+      const { error } = await runOp(op);
+      if (!error) return "saved";
+      if (!isNetworkError(error)) throw error;
+    }
+    const q = enqueue(loadQueue(), op);
+    saveQueue(q);
+    setPending(q.length);
+    queryClient.setQueryData(["clientes"], applyQueue(loadCache(), q));
+    return "queued";
+  };
+
+  const offlineToast = () =>
+    toast({ title: "Guardado sin conexión", description: "Se va a enviar a la base de datos cuando vuelva internet." });
+
+  const mutationOpts = { networkMode: "always" as const };
+
+  const addMutation = useMutation({
+    ...mutationOpts,
+    mutationFn: (data: ClienteFormData) => saveOrQueue({ kind: "insert", tempId: newTempId(), data: toData(data) }),
+    onSuccess: (r) => {
+      if (r === "saved") queryClient.invalidateQueries({ queryKey: ["clientes"] });
+      r === "queued" ? offlineToast() : toast({ title: "Cliente agregado correctamente" });
       setFormOpen(false);
     },
-    onError: (e: any) => toast({ title: e?.code === "23505" ? "Ya existe un cliente con ese DNI" : "Error al agregar cliente", variant: "destructive" }),
+    onError: (e: any) =>
+      toast({
+        title: e?.code === "23505" ? "Ya existe un cliente con ese DNI" : "Error al agregar cliente",
+        variant: "destructive",
+      }),
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: ClienteFormData }) => {
-      const { error } = await supabase
-        .from("clientes")
-        .update({
-          dni: data.dni,
-          apellido: data.apellido,
-          nombre: data.nombre,
-          cuit: data.cuit,
-          telefono: data.telefono || null,
-        })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["clientes"] });
-      toast({ title: "Cliente modificado correctamente" });
+    ...mutationOpts,
+    mutationFn: ({ id, data }: { id: number; data: ClienteFormData }) =>
+      saveOrQueue({ kind: "update", id, data: toData(data) }),
+    onSuccess: (r) => {
+      if (r === "saved") queryClient.invalidateQueries({ queryKey: ["clientes"] });
+      r === "queued" ? offlineToast() : toast({ title: "Cliente modificado correctamente" });
       setEditingCliente(null);
       setFormOpen(false);
     },
-    onError: () => toast({ title: "Error al modificar cliente", variant: "destructive" }),
+    onError: (e: any) =>
+      toast({
+        title: e?.code === "23505" ? "Ya existe un cliente con ese DNI" : "Error al modificar cliente",
+        variant: "destructive",
+      }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const { error } = await supabase.from("clientes").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["clientes"] });
-      toast({ title: "Cliente eliminado correctamente" });
+    ...mutationOpts,
+    mutationFn: (id: number) => saveOrQueue({ kind: "delete", id }),
+    onSuccess: (r) => {
+      if (r === "saved") queryClient.invalidateQueries({ queryKey: ["clientes"] });
+      r === "queued" ? offlineToast() : toast({ title: "Cliente eliminado correctamente" });
       setDeleteId(null);
     },
     onError: () => toast({ title: "Error al eliminar cliente", variant: "destructive" }),
@@ -153,22 +221,40 @@ const Index = () => {
           <InstallAppButton />
         </div>
 
+        {(!online || pending > 0) && (
+          <div className="mb-6 flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3 text-sm text-foreground">
+            {online ? <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} /> : <WifiOff className="h-4 w-4" />}
+            <span className="flex-1">
+              {online ? "Conectado." : "Sin conexión. Podés seguir trabajando."}{" "}
+              {pending > 0 && `${pending} cambio(s) pendiente(s) de enviar a la base de datos.`}
+            </span>
+            {online && pending > 0 && (
+              <Button size="sm" variant="outline" onClick={sync} disabled={syncing}>
+                Sincronizar
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Toolbar */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative max-w-sm flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nombre, apellido o CUIT..."
+              placeholder="Buscar por nombre, apellido, DNI o CUIT..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
             />
           </div>
-          <div className="flex flex-wrap gap-2"><BuscarPorDni /><ConsultarClima />
-          <Button onClick={() => setFormOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Nuevo Cliente
-          </Button></div>
+          <div className="flex flex-wrap gap-2">
+            <BuscarPorDni />
+            <ConsultarClima />
+            <Button onClick={() => setFormOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Nuevo Cliente
+            </Button>
+          </div>
         </div>
 
         {/* Table */}
@@ -212,7 +298,7 @@ const Index = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              onClick={() => deleteId !== null && deleteMutation.mutate(deleteId)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Eliminar
