@@ -112,7 +112,8 @@ const Index = () => {
 
   /** Intenta guardar en la base; si no hay internet, lo deja en la cola local. */
   const saveOrQueue = async (op: PendingOp): Promise<"saved" | "queued"> => {
-    if (navigator.onLine) {
+    const isLocalOnly = op.kind !== "insert" && op.id < 0;
+    if (navigator.onLine && !isLocalOnly) {
       const { error } = await runOp(op);
       if (!error) return "saved";
       if (!isNetworkError(error)) throw error;
