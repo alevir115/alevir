@@ -1,0 +1,2 @@
+- Client data works offline via a localStorage cache + pending-change queue (src/lib/offline-clientes.ts) synced on reconnect; why: desktop/PWA users must keep editing without internet.
+- Service worker registers only in production, outside iframes, preview hosts and Electron (src/lib/register-sw.ts); why: SW in preview/Electron serves stale builds.

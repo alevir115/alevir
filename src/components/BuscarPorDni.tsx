@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { IdCard, Loader2 } from "lucide-react";
+import { applyQueue, loadCache, loadQueue } from "@/lib/offline-clientes";
 
 interface ClienteDni {
   id: number;
@@ -29,6 +30,10 @@ const BuscarPorDni = () => {
     setError(null);
     const { data, error } = await supabase.functions.invoke("cliente-por-dni", { body: { dni } });
     setLoading(false);
+    if (error && !navigator.onLine) {
+      const local = applyQueue(loadCache(), loadQueue()).find((c) => c.dni === dni);
+      if (local) { setCliente(local as ClienteDni); return; }
+    }
     if (error || !data || data.error) {
       setError("No se encontró ningún cliente con ese DNI");
       return;
