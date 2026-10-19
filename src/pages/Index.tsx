@@ -74,8 +74,7 @@ const Index = () => {
         .from("clientes")
         .update({
           dni: data.dni,
-          dni: data.dni,
-        apellido: data.apellido,
+          apellido: data.apellido,
           nombre: data.nombre,
           cuit: data.cuit,
           telefono: data.telefono || null,
