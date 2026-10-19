@@ -121,6 +121,7 @@ const Index = () => {
     const q = enqueue(loadQueue(), op);
     saveQueue(q);
     setPending(q.length);
+    queryClient.setQueryData(["clientes"], applyQueue(loadCache(), q));
     return "queued";
   };
 
@@ -133,7 +134,7 @@ const Index = () => {
     ...mutationOpts,
     mutationFn: (data: ClienteFormData) => saveOrQueue({ kind: "insert", tempId: newTempId(), data: toData(data) }),
     onSuccess: (r) => {
-      queryClient.invalidateQueries({ queryKey: ["clientes"] });
+      if (r === "saved") queryClient.invalidateQueries({ queryKey: ["clientes"] });
       r === "queued" ? offlineToast() : toast({ title: "Cliente agregado correctamente" });
       setFormOpen(false);
     },
@@ -149,7 +150,7 @@ const Index = () => {
     mutationFn: ({ id, data }: { id: number; data: ClienteFormData }) =>
       saveOrQueue({ kind: "update", id, data: toData(data) }),
     onSuccess: (r) => {
-      queryClient.invalidateQueries({ queryKey: ["clientes"] });
+      if (r === "saved") queryClient.invalidateQueries({ queryKey: ["clientes"] });
       r === "queued" ? offlineToast() : toast({ title: "Cliente modificado correctamente" });
       setEditingCliente(null);
       setFormOpen(false);
@@ -165,7 +166,7 @@ const Index = () => {
     ...mutationOpts,
     mutationFn: (id: number) => saveOrQueue({ kind: "delete", id }),
     onSuccess: (r) => {
-      queryClient.invalidateQueries({ queryKey: ["clientes"] });
+      if (r === "saved") queryClient.invalidateQueries({ queryKey: ["clientes"] });
       r === "queued" ? offlineToast() : toast({ title: "Cliente eliminado correctamente" });
       setDeleteId(null);
     },
