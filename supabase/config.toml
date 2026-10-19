@@ -1,1 +1,4 @@
 project_id = "lqluyizhlrvmwhnetcqb"
+
+[functions.cliente-por-dni]
+verify_jwt = false
