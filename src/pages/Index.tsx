@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, Users } from "lucide-react";
 import ConsultarClima from "@/components/ConsultarClima";
+import BuscarPorDni from "@/components/BuscarPorDni";
 import ClienteTable from "@/components/ClienteTable";
 import ClienteForm, { ClienteFormData } from "@/components/ClienteForm";
 import { InstallAppButton } from "@/components/InstallAppButton";
@@ -163,7 +164,7 @@ const Index = () => {
               className="pl-9"
             />
           </div>
-          <div className="flex gap-2"><ConsultarClima />
+          <div className="flex flex-wrap gap-2"><BuscarPorDni /><ConsultarClima />
           <Button onClick={() => setFormOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />
             Nuevo Cliente
