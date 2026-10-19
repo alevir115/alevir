@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 
 export interface ClienteFormData {
+  dni: string;
   apellido: string;
   nombre: string;
   cuit: string;
@@ -27,6 +28,7 @@ interface ClienteFormProps {
 
 const ClienteForm = ({ open, onClose, onSubmit, initialData, isEditing }: ClienteFormProps) => {
   const [form, setForm] = useState<ClienteFormData>({
+    dni: "",
     apellido: "",
     nombre: "",
     cuit: "",
@@ -37,7 +39,7 @@ const ClienteForm = ({ open, onClose, onSubmit, initialData, isEditing }: Client
     if (initialData) {
       setForm(initialData);
     } else {
-      setForm({ apellido: "", nombre: "", cuit: "", telefono: "" });
+      setForm({ dni: "", apellido: "", nombre: "", cuit: "", telefono: "" });
     }
   }, [initialData, open]);
 
@@ -55,6 +57,18 @@ const ClienteForm = ({ open, onClose, onSubmit, initialData, isEditing }: Client
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="dni">DNI *</Label>
+            <Input
+              id="dni"
+              value={form.dni}
+              onChange={(e) => setForm({ ...form, dni: e.target.value.replace(/\D/g, "") })}
+              required
+              inputMode="numeric"
+              placeholder="Ej: 30123456"
+              autoComplete="off"
+            />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="apellido">Apellido *</Label>
             <Input

@@ -19,6 +19,7 @@ export type Database = {
           apellido: string
           created_at: string
           cuit: string
+          dni: string | null
           id: number
           nombre: string
           telefono: string | null
@@ -27,6 +28,7 @@ export type Database = {
           apellido: string
           created_at?: string
           cuit: string
+          dni?: string | null
           id?: never
           nombre: string
           telefono?: string | null
@@ -35,6 +37,7 @@ export type Database = {
           apellido?: string
           created_at?: string
           cuit?: string
+          dni?: string | null
           id?: never
           nombre?: string
           telefono?: string | null

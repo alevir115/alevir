@@ -22,6 +22,7 @@ import {
 
 interface Cliente {
   id: number;
+  dni: string | null;
   apellido: string;
   nombre: string;
   cuit: string;
@@ -51,6 +52,7 @@ const Index = () => {
   const addMutation = useMutation({
     mutationFn: async (data: ClienteFormData) => {
       const { error } = await supabase.from("clientes").insert({
+        dni: data.dni,
         apellido: data.apellido,
         nombre: data.nombre,
         cuit: data.cuit,
@@ -63,7 +65,7 @@ const Index = () => {
       toast({ title: "Cliente agregado correctamente" });
       setFormOpen(false);
     },
-    onError: () => toast({ title: "Error al agregar cliente", variant: "destructive" }),
+    onError: (e: any) => toast({ title: e?.code === "23505" ? "Ya existe un cliente con ese DNI" : "Error al agregar cliente", variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
@@ -71,6 +73,7 @@ const Index = () => {
       const { error } = await supabase
         .from("clientes")
         .update({
+          dni: data.dni,
           apellido: data.apellido,
           nombre: data.nombre,
           cuit: data.cuit,
@@ -125,6 +128,7 @@ const Index = () => {
       c.apellido.toLowerCase().includes(q) ||
       c.nombre.toLowerCase().includes(q) ||
       c.cuit.toLowerCase().includes(q) ||
+      (c.dni && c.dni.includes(q)) ||
       (c.telefono && c.telefono.toLowerCase().includes(q))
     );
   });
@@ -184,6 +188,7 @@ const Index = () => {
         initialData={
           editingCliente
             ? {
+                dni: editingCliente.dni || "",
                 apellido: editingCliente.apellido,
                 nombre: editingCliente.nombre,
                 cuit: editingCliente.cuit,

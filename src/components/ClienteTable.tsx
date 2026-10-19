@@ -11,6 +11,7 @@ import { Pencil, Trash2 } from "lucide-react";
 
 interface Cliente {
   id: number;
+  dni: string | null;
   apellido: string;
   nombre: string;
   cuit: string;
@@ -39,6 +40,7 @@ const ClienteTable = ({ clientes, onEdit, onDelete }: ClienteTableProps) => {
         <TableHeader>
           <TableRow className="bg-muted/50">
             <TableHead className="font-semibold">ID</TableHead>
+            <TableHead className="font-semibold">DNI</TableHead>
             <TableHead className="font-semibold">Apellido</TableHead>
             <TableHead className="font-semibold">Nombre</TableHead>
             <TableHead className="font-semibold">CUIT</TableHead>
@@ -50,6 +52,7 @@ const ClienteTable = ({ clientes, onEdit, onDelete }: ClienteTableProps) => {
           {clientes.map((cliente) => (
             <TableRow key={cliente.id} className="hover:bg-muted/30 transition-colors">
               <TableCell className="font-mono text-muted-foreground">{cliente.id}</TableCell>
+              <TableCell className="font-mono">{cliente.dni || "—"}</TableCell>
               <TableCell className="font-medium">{cliente.apellido}</TableCell>
               <TableCell>{cliente.nombre}</TableCell>
               <TableCell className="font-mono">{cliente.cuit}</TableCell>
